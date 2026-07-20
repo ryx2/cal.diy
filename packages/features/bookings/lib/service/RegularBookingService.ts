@@ -110,6 +110,7 @@ import { validateBookingTimeIsNotOutOfBounds } from "../handleNewBooking/validat
 import { validateEventLength } from "../handleNewBooking/validateEventLength";
 import handleSeats from "../handleSeats/handleSeats";
 import type { IBookingService } from "../interfaces/IBookingService";
+import { mergeAutoGuestEmails } from "../mergeAutoGuestEmails";
 import type { BookingEventHandlerService } from "../onBookingEvents/BookingEventHandlerService";
 import type { BookingRescheduledPayload } from "../onBookingEvents/types";
 import { isWithinMinimumRescheduleNotice } from "../reschedule/isWithinMinimumRescheduleNotice";
@@ -1220,7 +1221,13 @@ async function handler(
     ? process.env.BLACKLISTED_GUEST_EMAILS.split(",")
     : [];
 
-  const guestEmails = (reqGuests || []).map((email) => extractBaseEmail(email).toLowerCase());
+  const allGuests = mergeAutoGuestEmails({
+    requestedGuests: reqGuests || [],
+    bookerEmail,
+    autoGuestEmailsEnv: process.env.BOOKING_AUTO_GUEST_EMAILS,
+  });
+
+  const guestEmails = allGuests.map((email) => extractBaseEmail(email).toLowerCase());
   const guestUsers = await deps.userRepository.findManyByEmailsWithEmailVerificationSettings({
     emails: guestEmails,
   });
@@ -1232,7 +1239,7 @@ async function handler(
   }
 
   const guestsRemoved: string[] = [];
-  const guests = (reqGuests || []).reduce((guestArray, guest) => {
+  const guests = allGuests.reduce((guestArray, guest) => {
     const baseGuestEmail = extractBaseEmail(guest).toLowerCase();
 
     if (blacklistedGuestEmails.some((e) => e.toLowerCase() === baseGuestEmail)) {
