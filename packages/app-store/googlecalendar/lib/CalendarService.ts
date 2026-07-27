@@ -22,7 +22,6 @@ import type { CredentialForCalendarServiceWithEmail } from "@calcom/types/Creden
 import type { calendar_v3 } from "@googleapis/calendar";
 import type { GaxiosResponse } from "googleapis-common";
 import { RRule } from "rrule";
-
 import { AxiosLikeResponseToFetchResponse } from "../../_utils/oauth/AxiosLikeResponseToFetchResponse";
 import { CalendarAuth } from "./CalendarAuth";
 
@@ -296,26 +295,36 @@ class GoogleCalendarService implements Calendar {
       }
 
       if (event && event.id && event.hangoutLink) {
-        await calendar.events.patch({
-          // Update the same event but this time we know the hangout link
-          calendarId: selectedCalendar,
-          eventId: event.id || "",
-          requestBody: {
-            description: getRichDescription({
-              ...calEvent,
-              additionalInformation: { hangoutLink: event.hangoutLink },
-            }),
-            location: getLocation({
-              videoCallData: calEvent.videoCallData,
-              additionalInformation: {
-                ...calEvent.additionalInformation,
-                hangoutLink: event.hangoutLink,
-              },
-              location: calEvent.location,
-              uid: calEvent.uid,
-            }),
-          },
-        });
+        try {
+          await calendar.events.patch({
+            // Update the same event but this time we know the hangout link
+            calendarId: selectedCalendar,
+            eventId: event.id || "",
+            requestBody: {
+              description: getRichDescription({
+                ...calEvent,
+                additionalInformation: { hangoutLink: event.hangoutLink },
+              }),
+              location: getLocation({
+                videoCallData: calEvent.videoCallData,
+                additionalInformation: {
+                  ...calEvent.additionalInformation,
+                  hangoutLink: event.hangoutLink,
+                },
+                location: calEvent.location,
+                uid: calEvent.uid,
+              }),
+            },
+          });
+        } catch (patchError) {
+          // Google's per-user write quota can 403 this immediate second write. The patch
+          // only embeds the hangoutLink in the description, so it must not fail the whole
+          // creation — the event and Meet link already exist at this point.
+          this.log.warn(
+            "Failed to patch hangoutLink into created event, continuing",
+            safeStringify({ patchError, eventId: event.id })
+          );
+        }
       }
 
       return {
@@ -417,26 +426,35 @@ class GoogleCalendarService implements Calendar {
       });
 
       if (evt && evt.data.id && evt.data.hangoutLink && event.location === MeetLocationType) {
-        await calendar.events.patch({
-          // Update the same event but this time we know the hangout link
-          calendarId: selectedCalendar,
-          eventId: evt.data.id || "",
-          requestBody: {
-            description: getRichDescription({
-              ...event,
-              additionalInformation: { hangoutLink: evt.data.hangoutLink },
-            }),
-            location: getLocation({
-              videoCallData: event.videoCallData,
-              additionalInformation: {
-                ...event.additionalInformation,
-                hangoutLink: evt.data.hangoutLink,
-              },
-              location: event.location,
-              uid: event.uid,
-            }),
-          },
-        });
+        try {
+          await calendar.events.patch({
+            // Update the same event but this time we know the hangout link
+            calendarId: selectedCalendar,
+            eventId: evt.data.id || "",
+            requestBody: {
+              description: getRichDescription({
+                ...event,
+                additionalInformation: { hangoutLink: evt.data.hangoutLink },
+              }),
+              location: getLocation({
+                videoCallData: event.videoCallData,
+                additionalInformation: {
+                  ...event.additionalInformation,
+                  hangoutLink: evt.data.hangoutLink,
+                },
+                location: event.location,
+                uid: event.uid,
+              }),
+            },
+          });
+        } catch (patchError) {
+          // Same rationale as createEvent: the follow-up patch is cosmetic and can be
+          // rate limited by Google; the updated event and Meet link already exist.
+          this.log.warn(
+            "Failed to patch hangoutLink into updated event, continuing",
+            safeStringify({ patchError, eventId: evt.data.id })
+          );
+        }
         return {
           uid: "",
           ...evt.data,
