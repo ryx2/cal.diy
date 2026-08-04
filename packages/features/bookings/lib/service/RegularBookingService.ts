@@ -110,7 +110,7 @@ import { validateBookingTimeIsNotOutOfBounds } from "../handleNewBooking/validat
 import { validateEventLength } from "../handleNewBooking/validateEventLength";
 import handleSeats from "../handleSeats/handleSeats";
 import type { IBookingService } from "../interfaces/IBookingService";
-import { mergeAutoGuestEmails } from "../mergeAutoGuestEmails";
+import { mergeAutoGuestEmails, parseAutoGuestEmails } from "../mergeAutoGuestEmails";
 import type { BookingEventHandlerService } from "../onBookingEvents/BookingEventHandlerService";
 import type { BookingRescheduledPayload } from "../onBookingEvents/types";
 import { isWithinMinimumRescheduleNotice } from "../reschedule/isWithinMinimumRescheduleNotice";
@@ -1227,6 +1227,15 @@ async function handler(
     autoGuestEmailsEnv: process.env.BOOKING_AUTO_GUEST_EMAILS,
   });
 
+  // Auto guests get their own fixed timezone (if configured) so the times in
+  // their booking emails don't depend on whoever booked.
+  const autoGuestTimezone = process.env.BOOKING_AUTO_GUEST_TIMEZONE || undefined;
+  const autoGuestBaseEmails = new Set(
+    parseAutoGuestEmails(process.env.BOOKING_AUTO_GUEST_EMAILS).map((email) =>
+      extractBaseEmail(email).toLowerCase()
+    )
+  );
+
   const guestEmails = allGuests.map((email) => extractBaseEmail(email).toLowerCase());
   const guestUsers = await deps.userRepository.findManyByEmailsWithEmailVerificationSettings({
     emails: guestEmails,
@@ -1261,7 +1270,8 @@ async function handler(
       name: "",
       firstName: "",
       lastName: "",
-      timeZone: attendeeTimezone,
+      timeZone:
+        autoGuestTimezone && autoGuestBaseEmails.has(baseGuestEmail) ? autoGuestTimezone : attendeeTimezone,
       language: { translate: tGuests, locale: "en" },
     });
     return guestArray;

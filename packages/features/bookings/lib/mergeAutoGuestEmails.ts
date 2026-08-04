@@ -6,6 +6,13 @@ import { extractBaseEmail } from "@calcom/lib/extract-base-email";
  * email and are added as attendees on the calendar event, without the booker
  * having to add them manually.
  */
+export function parseAutoGuestEmails(autoGuestEmailsEnv: string | undefined): string[] {
+  return (autoGuestEmailsEnv ?? "")
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+}
+
 export function mergeAutoGuestEmails({
   requestedGuests,
   bookerEmail,
@@ -15,10 +22,7 @@ export function mergeAutoGuestEmails({
   bookerEmail: string;
   autoGuestEmailsEnv: string | undefined;
 }): string[] {
-  const autoGuestEmails = (autoGuestEmailsEnv ?? "")
-    .split(",")
-    .map((email) => email.trim())
-    .filter(Boolean);
+  const autoGuestEmails = parseAutoGuestEmails(autoGuestEmailsEnv);
 
   if (autoGuestEmails.length === 0) return requestedGuests;
 

@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { mergeAutoGuestEmails } from "./mergeAutoGuestEmails";
+import { mergeAutoGuestEmails, parseAutoGuestEmails } from "./mergeAutoGuestEmails";
+
+describe("parseAutoGuestEmails", () => {
+  it("returns an empty list when env is unset or empty", () => {
+    expect(parseAutoGuestEmails(undefined)).toEqual([]);
+    expect(parseAutoGuestEmails("")).toEqual([]);
+  });
+
+  it("splits on commas and trims whitespace", () => {
+    expect(parseAutoGuestEmails(" a@example.com ,, b@example.com ,")).toEqual([
+      "a@example.com",
+      "b@example.com",
+    ]);
+  });
+});
 
 describe("mergeAutoGuestEmails", () => {
   it("returns requested guests unchanged when env is unset", () => {
