@@ -1,18 +1,17 @@
-import { decodeHTML } from "entities";
-import { z } from "zod";
-
 import dayjs from "@calcom/dayjs";
 import { FeaturesRepository } from "@calcom/features/flags/features.repository";
 import isSmsCalEmail from "@calcom/lib/isSmsCalEmail";
-import { serverConfig } from "@calcom/lib/serverConfig";
 import { getServerErrorFromUnknown } from "@calcom/lib/server/getServerErrorFromUnknown";
+import { serverConfig } from "@calcom/lib/serverConfig";
 import { setTestEmail } from "@calcom/lib/testEmails";
 import { prisma } from "@calcom/prisma";
-
+import { decodeHTML } from "entities";
+import { z } from "zod";
 import { sanitizeDisplayName } from "../lib/sanitizeDisplayName";
 
 export default class BaseEmail {
   name = "";
+  protected throwOnSendError = false;
 
   protected getTimezone() {
     return "";
@@ -85,14 +84,15 @@ export default class BaseEmail {
           }
         }
       )
-    ).catch((e) =>
+    ).catch((e) => {
       console.error(
         "sendEmail",
         `from: ${"from" in payloadWithUnEscapedSubject ? payloadWithUnEscapedSubject.from : ""}`,
         `subject: ${"subject" in payloadWithUnEscapedSubject ? payloadWithUnEscapedSubject.subject : ""}`,
         e
-      )
-    );
+      );
+      if (this.throwOnSendError) throw e;
+    });
     return new Promise((resolve) => resolve("send mail async"));
   }
   protected getMailerOptions() {

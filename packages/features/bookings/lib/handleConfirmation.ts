@@ -18,6 +18,7 @@ import type { PlatformClientParams } from "@calcom/prisma/zod-utils";
 import { EventTypeMetaDataSchema } from "@calcom/prisma/zod-utils";
 import type { AdditionalInformation, CalendarEvent } from "@calcom/types/Calendar";
 import { getCalEventResponses } from "./getCalEventResponses";
+import { scheduleBookingReminder } from "./handleNewBooking/scheduleBookingReminder";
 import { scheduleNoShowTriggers } from "./handleNewBooking/scheduleNoShowTriggers";
 
 export async function handleConfirmation(args: {
@@ -310,6 +311,25 @@ export async function handleConfirmation(args: {
 
   const triggerForUser = true;
   const userId = booking.userId;
+
+  if (emailsEnabled) {
+    const reminderResults = await Promise.allSettled(
+      updatedBookings.map(({ id, uid, startTime }) =>
+        scheduleBookingReminder({
+          booking: { id, uid, startTime },
+          platformClientId: platformClientParams?.platformClientId,
+        })
+      )
+    );
+    const reminderFailures = reminderResults.filter((result) => result.status === "rejected");
+
+    if (reminderFailures.length > 0) {
+      tracingLogger.error(
+        "Error while scheduling booking reminders",
+        safeStringify({ errors: reminderFailures.map((failure) => failure.reason) })
+      );
+    }
+  }
 
   try {
     const subscribersBookingCreated = await getWebhooks({

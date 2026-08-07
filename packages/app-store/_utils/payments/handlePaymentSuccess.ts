@@ -5,6 +5,7 @@ import EventManager, { placeholderCreatedEvent } from "@calcom/features/bookings
 import { getAllCredentialsIncludeServiceAccountKey } from "@calcom/features/bookings/lib/getAllCredentialsForUsersOnEvent/getAllCredentials";
 import { handleBookingRequested } from "@calcom/features/bookings/lib/handleBookingRequested";
 import { handleConfirmation } from "@calcom/features/bookings/lib/handleConfirmation";
+import { scheduleBookingReminder } from "@calcom/features/bookings/lib/handleNewBooking/scheduleBookingReminder";
 import { getBooking } from "@calcom/features/bookings/lib/payment/getBooking";
 import { getPlatformParams } from "@calcom/features/platform-oauth-client/get-platform-params";
 import { PlatformOAuthClientRepository } from "@calcom/features/platform-oauth-client/platform-oauth-client.repository";
@@ -197,6 +198,7 @@ export async function handlePaymentSuccess(params: {
         bookingId: booking.id,
         booking,
         paid: true,
+        emailsEnabled: areEmailsEnabled,
         platformClientParams,
         traceContext: updatedTraceContext,
       });
@@ -208,6 +210,16 @@ export async function handlePaymentSuccess(params: {
       log.debug(`handling booking request for eventId ${eventType.id}`);
     }
   } else if (areEmailsEnabled) {
+    if (!booking.eventType?.seatsPerTimeSlot) {
+      try {
+        await scheduleBookingReminder({
+          booking: { id: booking.id, uid: booking.uid, startTime: booking.startTime },
+          platformClientId: platformClientParams?.platformClientId,
+        });
+      } catch (error) {
+        log.error("Error while scheduling booking reminder", safeStringify(error));
+      }
+    }
     await sendScheduledEmailsAndSMS({ ...evt }, undefined, undefined, undefined, eventType.metadata);
   }
 

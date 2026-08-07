@@ -104,6 +104,7 @@ import { handleAppsStatus } from "../handleNewBooking/handleAppsStatus";
 import { loadAndValidateUsers } from "../handleNewBooking/loadAndValidateUsers";
 import type { BookingType } from "../handleNewBooking/originalRescheduledBookingUtils";
 import { getOriginalRescheduledBooking } from "../handleNewBooking/originalRescheduledBookingUtils";
+import { scheduleBookingReminder } from "../handleNewBooking/scheduleBookingReminder";
 import { scheduleNoShowTriggers } from "../handleNewBooking/scheduleNoShowTriggers";
 import type { IEventTypePaymentCredentialType, Invitee, IsFixedAwareUser } from "../handleNewBooking/types";
 import { validateBookingTimeIsNotOutOfBounds } from "../handleNewBooking/validateBookingTimeIsNotOutOfBounds";
@@ -2527,6 +2528,22 @@ async function handler(
     }
   } catch (error) {
     tracingLogger.error("Error while scheduling no show triggers", JSON.stringify({ error }));
+  }
+
+  try {
+    if (isConfirmedByDefault && !noEmail && !eventType.seatsPerTimeSlot) {
+      await scheduleBookingReminder({
+        booking: {
+          startTime: booking.startTime,
+          id: booking.id,
+          uid: booking.uid,
+        },
+        isDryRun,
+        platformClientId,
+      });
+    }
+  } catch (error) {
+    tracingLogger.error("Error while scheduling booking reminder", JSON.stringify({ error }));
   }
 
   if (!isDryRun) {
