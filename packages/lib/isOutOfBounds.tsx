@@ -3,6 +3,7 @@ import type { EventType } from "@calcom/prisma/client";
 import { PeriodType } from "@calcom/prisma/enums";
 
 import { ROLLING_WINDOW_PERIOD_MAX_DAYS_TO_CHECK } from "./constants";
+import { getEarliestBookableTime } from "./getEarliestBookableTime";
 import logger from "./logger";
 import { safeStringify } from "./safeStringify";
 
@@ -251,11 +252,9 @@ export function isTimeOutOfBounds({
 
   guardAgainstBookingInThePast(date.toDate());
 
-  if (minimumBookingNotice) {
-    const minimumBookingStartDate = dayjs().add(minimumBookingNotice, "minutes");
-    if (date.isBefore(minimumBookingStartDate)) {
-      return true;
-    }
+  const minimumBookingStartDate = getEarliestBookableTime({ minimumBookingNotice });
+  if (date.isBefore(minimumBookingStartDate)) {
+    return true;
   }
 
   return false;

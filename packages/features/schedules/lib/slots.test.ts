@@ -1184,4 +1184,35 @@ describe("Tests 40-minute duration slot generation", () => {
     // Second range: 14:00-15:20 = 80 minutes = 2 slots (14:00, 14:40)
     expect(slots).toHaveLength(4);
   });
+
+  it.each([
+    false,
+    true,
+  ])("does not round the deployment cutoff down when optimized slots are %s", (showOptimizedSlots) => {
+    vi.setSystemTime(dayjs.utc("2026-08-13T15:00:30.000Z").toDate());
+    vi.stubEnv("TALKSHI_DYNAMIC_BOOKING_NOTICE_ENABLED", "1");
+    vi.stubEnv("TALKSHI_DYNAMIC_BOOKING_NOTICE_TIMEZONE", "America/Los_Angeles");
+
+    try {
+      const dayInLosAngeles = dayjs.tz("2026-08-13T00:00:00", "America/Los_Angeles");
+      const slots = getSlots({
+        inviteeDate: dayInLosAngeles,
+        frequency: 30,
+        minimumBookingNotice: 0,
+        dateRanges: [
+          {
+            start: dayInLosAngeles.hour(9),
+            end: dayInLosAngeles.hour(13),
+          },
+        ],
+        eventLength: 30,
+        showOptimizedSlots,
+      });
+
+      expect(slots.map((slot) => slot.time.format("HH:mm"))).toEqual(["11:30", "12:00", "12:30"]);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.setSystemTime(dayjs.utc("2021-06-20T11:59:59Z").toDate());
+    }
+  });
 });

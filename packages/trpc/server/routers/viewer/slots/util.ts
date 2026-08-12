@@ -51,6 +51,7 @@ import { filterBlockedHosts } from "@calcom/features/watchlist/operations/filter
 import { shouldIgnoreContactOwner } from "@calcom/lib/bookings/routing/utils";
 import { RESERVED_SUBDOMAINS } from "@calcom/lib/constants";
 import { getUTCOffsetByTimezone } from "@calcom/lib/dayjs";
+import { getEarliestBookableTime } from "@calcom/lib/getEarliestBookableTime";
 import { descendingLimitKeys, intervalLimitKeyToUnit } from "@calcom/lib/intervalLimits/intervalLimit";
 import type { IntervalLimit } from "@calcom/lib/intervalLimits/intervalLimitSchema";
 import { parseBookingLimit } from "@calcom/lib/intervalLimits/isBookingLimits";
@@ -670,7 +671,7 @@ export class AvailableSlotsService {
   );
 
   private getStartTime(startTimeInput: string, timeZone?: string, minimumBookingNotice?: number) {
-    const startTimeMin = dayjs.utc().add(minimumBookingNotice || 1, "minutes");
+    const startTimeMin = getEarliestBookableTime({ minimumBookingNotice: minimumBookingNotice || 1 });
     const startTime = timeZone === "Etc/GMT" ? dayjs.utc(startTimeInput) : dayjs(startTimeInput).tz(timeZone);
 
     return startTimeMin.isAfter(startTime) ? startTimeMin.tz(timeZone) : startTime;

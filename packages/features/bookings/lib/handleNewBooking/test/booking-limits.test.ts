@@ -766,6 +766,66 @@ describe("handleNewBooking", () => {
     timeout
   );
 
+  test(
+    "should fail a direct booking before the deployment cutoff",
+    async ({}) => {
+      vi.setSystemTime("2026-08-13T15:00:00.000Z");
+      vi.stubEnv("TALKSHI_DYNAMIC_BOOKING_NOTICE_ENABLED", "1");
+      vi.stubEnv("TALKSHI_DYNAMIC_BOOKING_NOTICE_TIMEZONE", "America/Los_Angeles");
+
+      try {
+        const handleNewBooking = getNewBookingHandler();
+        const booker = getBooker({
+          email: "booker@example.com",
+          name: "Booker",
+        });
+        const organizer = getOrganizer({
+          name: "Organizer",
+          email: "organizer@example.com",
+          id: 101,
+          schedules: [TestData.schedules.IstWorkHours],
+        });
+
+        await createBookingScenario(
+          getScenarioData({
+            eventTypes: [
+              {
+                id: 1,
+                slotInterval: 30,
+                length: 30,
+                users: [{ id: organizer.id }],
+              },
+            ],
+            organizer,
+          })
+        );
+
+        const mockBookingData = getMockRequestDataForBooking({
+          data: {
+            user: organizer.username,
+            eventTypeId: 1,
+            start: "2026-08-13T17:59:59.999Z",
+            end: "2026-08-13T18:29:59.999Z",
+            responses: {
+              email: booker.email,
+              name: booker.name,
+              location: { optionValue: "", value: "New York" },
+            },
+          },
+        });
+
+        await expect(
+          handleNewBooking({
+            bookingData: mockBookingData,
+          })
+        ).rejects.toThrowError("booking_time_out_of_bounds_error");
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+    timeout
+  );
+
   describe("Future Limits", () => {
     test(
       `should fail booking if periodType=ROLLING check fails`,

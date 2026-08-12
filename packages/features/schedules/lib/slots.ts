@@ -7,6 +7,7 @@ import type {
 } from "@calcom/features/availability/lib/getUserAvailability";
 import type { DateRange } from "@calcom/features/schedules/lib/date-ranges";
 import { getTimeZone } from "@calcom/lib/dayjs";
+import { getEarliestBookableTime } from "@calcom/lib/getEarliestBookableTime";
 import { withReporting } from "@calcom/lib/sentryWrapper";
 
 export type GetSlots = {
@@ -120,7 +121,7 @@ function buildSlotsWithDateRanges({
     }
   }
 
-  const startTimeWithMinNotice = dayjs.utc().add(minimumBookingNotice, "minute");
+  const startTimeWithMinNotice = getEarliestBookableTime({ minimumBookingNotice });
 
   const slotBoundaries = new Map<number, true>();
 
@@ -129,7 +130,10 @@ function buildSlotsWithDateRanges({
       ? range.start
       : startTimeWithMinNotice;
 
-    // For current day bookings, normalizing the seconds to zero to avoid issues with time calculations
+    // Rounding down would expose slots with less than the required notice.
+    if (slotStartTime.second() !== 0 || slotStartTime.millisecond() !== 0) {
+      slotStartTime = slotStartTime.add(1, "minute");
+    }
     slotStartTime = slotStartTime.set("second", 0).set("millisecond", 0);
 
     // Convert to target timezone BEFORE checking if rounding is needed
